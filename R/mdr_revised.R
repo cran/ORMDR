@@ -74,8 +74,8 @@ mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10) {
  
   name<-apply(t(z$min.comb),1,function(x){t<-NULL;
                                                                  for(i in 1:length(x)) 
-                                                                       t<-paste(t,as.character(x[i]),sep="") ;return(t)})
-  z$best.combi<-unlist(strsplit(names(sort(table(name),decreasing=TRUE))[1],""))
+                                                                       t<-paste(t,as.character(x[i]),sep=";") ;return(t)})
+  z$best.combi<-unlist(strsplit(names(sort(table(name),decreasing=TRUE))[1],";"))[-1]
   z
 }
 
