@@ -13,7 +13,7 @@ require(combinat)
 ## response data must be coded by 1 (case) or 0 (control).
 ## snp data must be coded by 0, 1, or 2.
 
-mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10) {
+mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10, randomize = TRUE) {
 
 	errRate.C <- function(comb, train, test, threshold) {
 	  z <- .C("err_rate", as.integer(comb), nrow(comb), ncol(comb),
@@ -25,27 +25,33 @@ mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10) {
 	  cbind(train = z$err.train, test = z$err.test)
 	}  
 
-  resp <- dataset[, colresp]
-  case <- which(resp == cs)
-  ctl <- which(resp != cs)
-  resp <- as.integer(resp == cs)
-  snp <- dataset[, -colresp]
+    resp <- dataset[, colresp]
+    case <- which(resp == cs)
+    ctl <- which(resp != cs)
+    if (randomize) {
+        case <- sample(case)
+        ctl <- sample(ctl)
+    }
+    resp <- as.integer(resp == cs)
+    snp <- dataset[, -colresp]
 
-  cv.case <- matrix(0, nrow = length(case), ncol = 2)
-  cv.case[, 1] <- 1:length(case) %% cv.fold + 1
-  cv.case[, 2] <- sample(case)
-  cv.ctl <- matrix(0, nrow = length(ctl), ncol = 2)
-  cv.ctl[, 1] <- 1:length(ctl) %% cv.fold + 1
-  cv.ctl[, 2] <- sample(ctl)
-  cv <- rbind(cv.case, cv.ctl)
-  d <- cbind(resp, snp)
+    cv.case <- matrix(0, nrow = length(case), ncol = 2)
+    cv.case[, 1] <- 1:length(case) %% cv.fold + 1
+#  cv.case[, 2] <- sample(case)
+    cv.case[, 2] <- case
+    cv.ctl <- matrix(0, nrow = length(ctl), ncol = 2)
+    cv.ctl[, 1] <- 1:length(ctl) %% cv.fold + 1
+#  cv.ctl[, 2] <- sample(ctl)
+    cv.ctl[, 2] <- ctl
+    cv <- rbind(cv.case, cv.ctl)
+    d <- cbind(resp, snp)
 
-  ## result
-  z <- list()
+    ## result
+    z <- list()
 
-  ## combinations
-  comb <- list()
-  k <-combi
+    ## combinations
+    comb <- list()
+    k <-combi
     comb <- combn(ncol(snp), k)
     comb <- comb + 1
     z <- list()
@@ -54,41 +60,48 @@ mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10) {
     z$test.erate <- numeric(cv.fold)
 
 
-  for (i in 1:cv.fold) {
-    train <- d[-cv[cv[, 1] == i, 2], ]
-    test <- d[cv[cv[, 1] == i, 2], ]
-    threshold <- length(which(train[, 1] == cs)) / 
-      length(which(train[, 1] != cs)) 
+    for (i in 1:cv.fold) {
+        train <- d[-cv[cv[, 1] == i, 2], ]
+        test <- d[cv[cv[, 1] == i, 2], ]
+        threshold <- length(which(train[, 1] == cs)) / 
+        length(which(train[, 1] != cs)) 
 
-      ## train and test error ate for all combination of SNPs
-      errs <- errRate.C(comb, train, test, threshold)
-      min.loc <- which.min(errs[, 1])
-      z$min.comb[, i] <- comb[, min.loc]
-      z$train.erate[i] <- errs[min.loc, 1]
-      z$test.erate[i] <- errs[min.loc, 2]
-   }
+        ## train and test error ate for all combination of SNPs
+        errs <- errRate.C(comb, train, test, threshold)
+        min.loc <- which.min(errs[, 1])
+        z$min.comb[, i] <- comb[, min.loc] - 1
+        z$train.erate[i] <- errs[min.loc, 1]
+        z$test.erate[i] <- errs[min.loc, 2]
+    }
+    z$min.comb[z$min.comb >= colresp] <- z$min.comb[z$min.comb >= colresp] + 1
 
-  ## maximum repeated selection
+    ## maximum repeated selection
   
-  z$data <- d
+    z$data <- d
  
-  name<-apply(t(z$min.comb),1,function(x){t<-NULL;
-                                                                 for(i in 1:length(x)) 
-                                                                       t<-paste(t,as.character(x[i]),sep=";") ;return(t)})
-  z$best.combi<-unlist(strsplit(names(sort(table(name),decreasing=TRUE))[1],";"))[-1]
-  z
+    name<-apply(t(z$min.comb),1,function(x) {
+        t<-NULL;
+        for(i in 1:length(x)) 
+            t<-paste(t,as.character(x[i]),sep=";") ;return(t)})
+    z$best.combi<-unlist(strsplit(names(sort(table(name),decreasing=TRUE))[1],";"))[-1]
+
+    z
 }
 
-ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000)
-{  
+ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000) {  
     case.id<-which(dataset[,colresp]==cs)
     control.id<-c(1:nrow(dataset))[-case.id]
+    snp <- dataset[, -colresp]
+    bestcombi0 <- bestcombi
+    bestcombi0[bestcombi >= colresp] <- bestcombi[bestcombi >= colresp] - 1
   
-     best.data.case<-list()
-     best.data.cont<-list()
-    for(i in 1:length(bestcombi))
-    {     best.data.case[[i]]<-factor(dataset[case.id,bestcombi[i]],levels=c(0,1,2))
-          best.data.cont[[i]]<-factor(dataset[control.id,bestcombi[i]],levels=c(0,1,2))
+    best.data.case<-list()
+    best.data.cont<-list()
+    for(i in 1:length(bestcombi)) {
+#        best.data.case[[i]]<-factor(dataset[case.id,bestcombi[i]],levels=c(0,1,2))
+#        best.data.cont[[i]]<-factor(dataset[control.id,bestcombi[i]],levels=c(0,1,2))
+        best.data.case[[i]]<-factor(snp[case.id,bestcombi0[i]],levels=c(0,1,2))
+        best.data.cont[[i]]<-factor(snp[control.id,bestcombi0[i]],levels=c(0,1,2))
     }
    
     n.case<-length(case.id)
@@ -97,45 +110,57 @@ ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000)
     t.control<-table(best.data.cont)/n.cont
     Odds<-c(t.case/t.control)
    
-    LU.Asy<-LU.Boot<-matrix(NA,ncol=2,nrow=3**length(bestcombi))
-    if(CI.Asy)
-    {         L<-c(exp(log(Odds)-1.96*sqrt((t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
-            U<-c(exp(log(Odds)+1.96*sqrt((1-t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
-            LU.Asy<-cbind(L,U)
+#    LU.Asy<-LU.Boot<-matrix(NA,ncol=2,nrow=3**length(bestcombi))
+    if(CI.Asy) {
+        LU.Asy <-matrix(NA,ncol=2,nrow=3**length(bestcombi))
+        L<-c(exp(log(Odds)-1.96*sqrt((t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
+        U<-c(exp(log(Odds)+1.96*sqrt((1-t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
+        LU.Asy<-cbind(L,U)
     }
-    if(CI.Boot)
-    {     Odds.keep<-NULL
-           for(i in 1:B)
-          {     case.id<-sample(1:n.case,n.case,replace=TRUE)
-                 cont.id<-sample(1:n.cont,n.cont,replace=TRUE)
-                 best.data.case<-list()
-                 best.data.cont<-list()
-                 for(i in 1:length(bestcombi))
-                {     best.data.case[[i]]<-factor(dataset[case.id,bestcombi[i]],levels=c(0,1,2))
-                       best.data.cont[[i]]<-factor(dataset[control.id,bestcombi[i]],levels=c(0,1,2))
-                }
-                 P1.t<-c(table(best.data.case)/n.case)
-                 P2.t<-c(table(best.data.cont)/n.cont)
-                 Odds.t<-P1.t/P2.t
-                 Odds.keep<-rbind(Odds.keep,c(Odds.t))
-          }
-          LU.Boot<-NULL
-          for(id in 1:ncol(Odds.keep))
-         {     L.t<-sort(Odds.keep[,id])[round(B*0.025)]
-               U.t<-sort(Odds.keep[,id])[round(B*0.975)]
-               LU.Boot<-rbind(LU.Boot,c(L.t,U.t))
-          }
+    if(CI.Boot) {
+        LU.Boot<-matrix(NA,ncol=2,nrow=3**length(bestcombi))
+        Odds.keep<-NULL
+        for(i in 1:B) {
+            case.boot<-sample(1:n.case,n.case,replace=TRUE)
+            cont.boot<-sample(1:n.cont,n.cont,replace=TRUE)
+            boot.data.case<-list()
+            boot.data.cont<-list()
+            for(i in 1:length(bestcombi)) {
+#                boot.data.case[[i]]<-factor(dataset[case.boot,bestcombi[i]],levels=c(0,1,2))
+#                boot.data.cont[[i]]<-factor(dataset[control.boot,bestcombi[i]],levels=c(0,1,2))
+                boot.data.case[[i]]<-factor(snp[case.boot,bestcombi0[i]],levels=c(0,1,2))
+                boot.data.cont[[i]]<-factor(snp[cont.boot,bestcombi0[i]],levels=c(0,1,2))
+            }
+            P1.t<-c(table(boot.data.case)/n.case)
+            P2.t<-c(table(boot.data.cont)/n.cont)
+            Odds.t<-P1.t/P2.t
+            Odds.keep<-rbind(Odds.keep,c(Odds.t))
+        }
+        LU.Boot<-NULL
+        for(id in 1:ncol(Odds.keep)) {
+            L.t<-sort(Odds.keep[,id])[round(B*0.025)]
+            U.t<-sort(Odds.keep[,id])[round(B*0.975)]
+            LU.Boot<-rbind(LU.Boot,c(L.t,U.t))
+        }
 
-     }
-     classID<-cbind(rep(0:2,3),rep(0:2,each=3))
-     if(length(bestcombi)>2)
-     {  for(i in 3:length(bestcombi))
-             classID<-cbind(rbind(classID,classID,classID),rep(0:2,each=nrow(classID)))
-     }
-     cell.freq<-cbind(c(table(best.data.case)),c(table(best.data.cont)))
-     Hi.Low<-ifelse(Odds>=1,"High","Low")
-     ORMDR.table<-cbind(classID,cell.freq,Hi.Low,round(Odds,3),rank(Odds),round(LU.Asy,3),round(LU.Boot,3))
-     colnames(ORMDR.table)<-c(colnames(dataset)[bestcombi],                                        "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank","Asy.L","Asy.U","Boot.L","Boot.U")
-     return(ORMDR.table)
+    }
+    classID<-cbind(rep(0:2,3),rep(0:2,each=3))
+    if(length(bestcombi)>2) {
+        for(i in 3:length(bestcombi))
+            classID<-cbind(rbind(classID,classID,classID),rep(0:2,each=nrow(classID)))
+    }
+    cell.freq<-cbind(c(table(best.data.case)),c(table(best.data.cont)))
+    Hi.Low<-ifelse(Odds>=1,"High","Low")
+#     ORMDR.table<-cbind(classID,cell.freq,Hi.Low,round(Odds,3),rank(Odds),round(LU.Asy,3),round(LU.Boot,3))
+    ORMDR.table<-cbind(classID,cell.freq,Hi.Low,round(Odds,3),rank(Odds))
+    if (CI.Asy)
+        ORMDR.table <- cbind(ORMDR.table, round(LU.Asy,3))
+    if (CI.Boot)
+        ORMDR.table <- cbind(ORMDR.table, round(LU.Boot,3))
+     
+#    colnames(ORMDR.table)<-c(colnames(dataset)[bestcombi],                                        "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank","Asy.L","Asy.U","Boot.L","Boot.U")
+    colnames(ORMDR.table)<-c(colnames(snp)[bestcombi0],                                        "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank","Asy.L","Asy.U","Boot.L","Boot.U")
+
+    ORMDR.table
 }
 

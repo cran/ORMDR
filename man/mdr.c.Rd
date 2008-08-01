@@ -5,7 +5,7 @@
 \description{ MDR method classifies the combination of multilocus tgenotypes into high-risk and low-risk groups based on a simple comparison of the ratios of the number of cases and controls.
 }
 \usage{
-mdr.c(dataset,colresp,cs,combi,cv.fold)
+mdr.c(dataset,colresp,cs,combi,cv.fold=10,randomize=TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -14,6 +14,7 @@ mdr.c(dataset,colresp,cs,combi,cv.fold)
   \item{cs}{ how to code "case"  class}
   \item{combi}{ number of genes for combination}
   \item{cv.fold}{ number of fold in cross validation}
+  \item{randomize}{ logical. If 'TRUE' (the default) the cross validation sets are randomized}
 }
 
 \value{
