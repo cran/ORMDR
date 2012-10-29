@@ -3,6 +3,7 @@
 ## 
 ## by SungGON Yi. <skon@kr.FreeBSD.org> and Eun-kyung Lee
 ##
+## $Id$
 ##
 
 require(combinat)
@@ -144,23 +145,30 @@ ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000) {
         }
 
     }
-    classID<-cbind(rep(0:2,3),rep(0:2,each=3))
-    if(length(bestcombi)>2) {
-        for(i in 3:length(bestcombi))
-            classID<-cbind(rbind(classID,classID,classID),rep(0:2,each=nrow(classID)))
-    }
+#    classID<-cbind(rep(0:2,3),rep(0:2,each=3))
+#    if(length(bestcombi)>2) {
+#        for(i in 3:length(bestcombi))
+#            classID<-cbind(rbind(classID,classID,classID),rep(0:2,each=nrow(classID)))
+#    }
+    classID <- sapply(1:length(bestcombi), function(x) gl(3, 3^(x - 1), 3^length(bestcombi), labels = 0:2))
+#    storage.mode(classID) <- "integer"
     cell.freq<-cbind(c(table(best.data.case)),c(table(best.data.cont)))
     Hi.Low<-ifelse(Odds>=1,"High","Low")
 #     ORMDR.table<-cbind(classID,cell.freq,Hi.Low,round(Odds,3),rank(Odds),round(LU.Asy,3),round(LU.Boot,3))
     ORMDR.table<-cbind(classID,cell.freq,Hi.Low,round(Odds,3),rank(Odds))
-    if (CI.Asy)
+    ORMDR.name <- c(colnames(snp)[bestcombi0], "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank")
+    if (CI.Asy) {
         ORMDR.table <- cbind(ORMDR.table, round(LU.Asy,3))
-    if (CI.Boot)
+        ORMDR.name <- c(ORMDR.name, "Asy.L", "Asy.U")
+    }
+    if (CI.Boot) {
         ORMDR.table <- cbind(ORMDR.table, round(LU.Boot,3))
+        ORMDR.name <- c(ORMDR.name, "Boot.L", "Boot.U")
+    }
      
 #    colnames(ORMDR.table)<-c(colnames(dataset)[bestcombi],                                        "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank","Asy.L","Asy.U","Boot.L","Boot.U")
-    colnames(ORMDR.table)<-c(colnames(snp)[bestcombi0],                                        "case.freq","cont.freq","Hi.Low","Odds.ratio","Rank","Asy.L","Asy.U","Boot.L","Boot.U")
-
+    colnames(ORMDR.table) <- ORMDR.name
+    
     ORMDR.table
 }
 
