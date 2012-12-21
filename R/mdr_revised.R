@@ -6,13 +6,12 @@
 ## $Id$
 ##
 
-require(combinat)
-
 ##dataset <- read.csv(file1)
 
 ## dataset object must be data.frame (or list).
 ## response data must be coded by 1 (case) or 0 (control).
 ## snp data must be coded by 0, 1, or 2.
+.PACKAGE <- "ORMDR" 
 
 mdr.c <- function(dataset, colresp, cs, combi, cv.fold = 10, randomize = TRUE) {
 
@@ -114,7 +113,7 @@ ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000) {
 #    LU.Asy<-LU.Boot<-matrix(NA,ncol=2,nrow=3**length(bestcombi))
     if(CI.Asy) {
         LU.Asy <-matrix(NA,ncol=2,nrow=3**length(bestcombi))
-        L<-c(exp(log(Odds)-1.96*sqrt((t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
+        L<-c(exp(log(Odds)-1.96*sqrt((1-t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
         U<-c(exp(log(Odds)+1.96*sqrt((1-t.case)/(t.case*n.case)+(1-t.control)/(t.control*n.cont))))
         LU.Asy<-cbind(L,U)
     }
@@ -172,3 +171,6 @@ ormdr<-function(dataset,bestcombi,cs,colresp,CI.Asy=TRUE,CI.Boot=FALSE,B=5000) {
     ORMDR.table
 }
 
+ .onLoad<-function(lib,pkg){
+  library.dynam("ORMDR",pkg,lib)
+}

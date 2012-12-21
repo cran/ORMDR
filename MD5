@@ -1,7 +1,6 @@
-4e171aef39f923f81798426d27f0aee5 *DESCRIPTION
-9fdfeb11f7ddba6f3aab9aaa6b1ac5dd *NAMESPACE
-691e486d563dbde806468f67ba83cfac *R/mdr_revised.R
-a4317bfc605a1ae517c9bd7b97208f6c *R/zzz.R
+ca3a5ec2f4352d7ccc74e979054ffdea *DESCRIPTION
+de39b8bcee9e9e9635d39fb7f01afa9b *NAMESPACE
+243635c1d48e9073ae65f1e38d25da3b *R/mdr_revised.R
 270795d1892150a3390b2283d0696277 *data/sample.dat.rda
 3238a960a20eaaa8b00b118427c384e7 *man/mdr.c.Rd
 16a068361d7a029359aae725d8e7d3f5 *man/ormdr.Rd
